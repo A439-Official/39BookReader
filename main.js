@@ -17,11 +17,6 @@ let configManager;
 let book;
 let api;
 
-// 自动更新配置
-autoUpdater.autoDownload = configManager.get("update.autoUpdate", true);
-autoUpdater.autoInstallOnAppQuit = configManager.get("update.autoUpdate", true);
-autoUpdater.allowPrerelease = configManager.get("update.allowPrerelease", false);
-
 // 更新事件处理
 autoUpdater.on("checking-for-update", () => {
     mainWindow?.webContents?.send("update-status", "checking");
@@ -182,6 +177,11 @@ nunjucks.configure(viewsPath, {
 const createWindow = () => {
     // 初始化配置管理器
     configManager = new ConfigManager(appName);
+
+    // 自动更新配置
+    autoUpdater.autoDownload = configManager.get("update.autoUpdate", true);
+    autoUpdater.autoInstallOnAppQuit = configManager.get("update.autoUpdate", true);
+    autoUpdater.allowPrerelease = configManager.get("update.allowPrerelease", false);
 
     mainWindow = new BrowserWindow({
         width: 1280,
