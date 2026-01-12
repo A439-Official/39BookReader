@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, protocol, net, dialog, session } = require("electron");
+const { app, BrowserWindow, protocol, net, dialog, session } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const nunjucks = require("nunjucks");
 const path = require("node:path");
@@ -46,10 +46,7 @@ autoUpdater.on("error", (err) => {
 });
 
 // 初始化API
-function initAPI() {
-    apiurl = JSON.parse(fs.readFileSync(resourceManager.getResourcePath("api.json"), "utf-8")).rootUrl;
-    downloadManager.initBookApi(apiurl);
-    book = new Book(apiurl);
+function initAPI(book) {
     api = {
         getBooks: () => {
             return [];
@@ -179,15 +176,10 @@ app.whenReady().then(() => {
     let isAPIInitialized = false;
     const handleSyncComplete = () => {
         try {
-            initAPI();
-            // const apiConfig = JSON.parse(fs.readFileSync(resourceManager.getResourcePath("api.json"), "utf-8"));
-            // api = new Book(apiConfig.rootUrl);
-            // downloadManager.initBookApi(api);
-
-            // 资源加载后只注册API handlers
-            // if (api) {
-            //     IpcHandlers._registerApiHandlers(api);
-            // }
+            apiurl = JSON.parse(fs.readFileSync(resourceManager.getResourcePath("api.json"), "utf-8")).rootUrl;
+            book = new Book(apiurl);
+            downloadManager.initBookApi(book);
+            initAPI(book);
 
             // 资源准备好后加载主界面
             windowManager.getMainWindow().loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(nunjucks.render("index.html", {}))}`);

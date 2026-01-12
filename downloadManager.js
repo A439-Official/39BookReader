@@ -1,7 +1,6 @@
 const fs = require("fs");
 const path = require("path");
 const { app } = require("electron");
-const Book = require("./api");
 const { encrypt } = require("./utils");
 
 /**
@@ -21,8 +20,8 @@ class DownloadManager {
     /**
      * 初始化Book API
      */
-    initBookApi(apiConfig) {
-        this.bookApi = new Book(apiConfig);
+    initBookApi(bookapi) {
+        this.bookApi = bookapi;
         this.initialized = true;
     }
 
