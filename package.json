@@ -1,0 +1,57 @@
+{
+    "name": "39bookreader",
+    "version": "0.1.0",
+    "description": "powered by electron",
+    "main": "main.js",
+    "scripts": {
+        "start": "electron .",
+        "pack": "electron-builder --dir",
+        "build": "electron-builder"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/A439-Official/39BookReader.git"
+    },
+    "author": "A439",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/A439-Official/39BookReader/issues"
+    },
+    "homepage": "https://github.com/A439-Official/39BookReader#readme",
+    "devDependencies": {
+        "@electron/fuses": "^1.8.0",
+        "electron": "^39.2.7",
+        "electron-builder": "^26.4.0"
+    },
+    "dependencies": {
+        "electron-squirrel-startup": "^1.0.1",
+        "electron-updater": "^6.7.3",
+        "node-fetch": "^3.3.2",
+        "nunjucks": "^3.2.4"
+    },
+    "build": {
+        "appId": "com.cfvi.39bookreader",
+        "productName": "39BookReader",
+        "directories": {
+            "output": "build"
+        },
+        "files": [
+            "package.json",
+            "*.js",
+            "templates/**/*",
+            "resources/**/*"
+        ],
+        "extraResources": [
+            "resources/**/*"
+        ],
+        "win": {
+            "target": "nsis",
+            "icon": "resources/icon.png"
+        },
+        "publish": {
+            "provider": "github",
+            "owner": "A439-Official",
+            "repo": "39BookReader"
+        }
+    }
+}

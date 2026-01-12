@@ -1,0 +1,54 @@
+{% extends "base.html" %} {% block head %}
+<link rel="stylesheet" href="https://a439-official.github.io/css/text.css" />
+<style>
+    .back-button {
+        position: absolute;
+        top: 32px;
+        right: 32px;
+        z-index: 9999;
+    }
+    .chapter-control {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 32px;
+        padding: 8px 16px;
+    }
+    .chapter-btn {
+        display: inline-block;
+        text-decoration: none;
+        cursor: pointer;
+    }
+</style>
+{% endblock %} {% block content %}
+<a href="#" class="back-button btn" id="back-button">章节列表</a>
+<h1>{{ chapter.title }}</h1>
+<div id="content">{{ chapter.content }}</div>
+<div class="chapter-control">
+    <a href="#" class="chapter-btn" id="perv-button">上一章</a>
+    <a href="#" class="chapter-btn" id="next-button">下一章</a>
+</div>
+{% endblock %} {% block script %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // 返回按钮
+        document.getElementById("back-button").addEventListener("click", (e) => {
+            e.preventDefault();
+            navigateTo("/book/{{ bookId }}");
+        });
+
+        // 上/下一章按钮
+        document.getElementById("perv-button").addEventListener("click", (e) => {
+            e.preventDefault();
+            navigateTo("{{ chapter.prev }}" ? "/chapter/{{ bookId }}/{{ chapter.prev }}" : "/book/{{ bookId }}");
+        });
+        document.getElementById("next-button").addEventListener("click", (e) => {
+            e.preventDefault();
+            navigateTo("{{ chapter.next }}" ? "/chapter/{{ bookId }}/{{ chapter.next }}" : "/book/{{ bookId }}");
+        });
+
+        // 内容处理
+        var content = document.getElementById("content");
+        content.innerHTML = content.innerHTML.replace(/\n/g, "<br>");
+    });
+</script>
+{% endblock %}

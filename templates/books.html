@@ -1,0 +1,127 @@
+{% extends "base.html" %} {% block head %}
+<link rel="stylesheet" href="https://a439-official.github.io/css/text.css" />
+<link rel="stylesheet" href="https://a439-official.github.io/css/form.css" />
+<link rel="stylesheet" href="https://a439-official.github.io/css/text.css" />
+<link rel="stylesheet" href="https://a439-official.github.io/css/card.css" />
+<style>
+    .modal-content {
+        border-radius: 10px;
+        background-color: rgba(0, 0, 0, 0.75);
+        width: 80%;
+        max-width: 600px;
+        max-height: 80vh;
+        overflow-y: auto;
+        padding: 30px;
+        animation: slideUp 0.4s ease-out;
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px) scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 20px;
+    }
+
+    /* 小说详情布局 */
+    .book-details {
+        display: grid;
+        grid-template-columns: 120px 1fr;
+        gap: 20px;
+    }
+
+    .book-cover {
+        width: 120px;
+        height: 160px;
+        border-radius: 8px;
+        object-fit: cover;
+    }
+
+    .book-abstract {
+        margin-top: 20px;
+    }
+
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+        .book-details {
+            grid-template-columns: 1fr;
+            text-align: center;
+        }
+
+        .book-cover {
+            margin: 0 auto;
+        }
+        #search-results {
+            max-height: 50vh;
+        }
+    }
+
+    /* 小说卡片 */
+    .book.card {
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+
+    .book.card:hover {
+        transform: translateY(-5px);
+    }
+</style>
+{% endblock %} {% block content %}
+<h1>小说列表</h1>
+<div id="book-list" class="cards-container-grid"></div>
+{% endblock %} {% block script %}
+<script>
+    async function init() {
+        const bookList = document.getElementById("book-list");
+
+        try {
+            const books = await window.books.getBooks();
+            if (!Array.isArray(books)) {
+                console.error("getBooks returned non-array:", books);
+                return;
+            }
+            for (const bookID of books) {
+                const bookData = await window.books.getBookInfo(bookID);
+                if (bookData) {
+                    const bookElement = createBookElement(bookData);
+                    bookList.appendChild(bookElement);
+                }
+            }
+        } catch (error) {
+            console.error("Failed to load books:", error);
+        }
+    }
+
+    // 创建小说元素
+    function createBookElement(bookData) {
+        const bookElement = document.createElement("div");
+        bookElement.id = `book-${bookData.book_id}`;
+        bookElement.className = "book card";
+        bookElement.addEventListener("click", () => readBook(bookData.book_id));
+        bookElement.innerHTML = `
+                <img src="${bookData.thumb_url}" alt="${bookData.book_name}">
+                <h3>
+                    <span>${bookData.book_name}</span>
+                    <small>${bookData.score > 0 ? bookData.score : "暂无评分"}</small>
+                </h3>
+                <p>By ${bookData.author}</p>
+            `;
+        return bookElement;
+    }
+
+    function readBook(bookID) {
+        navigateTo(`/book/${bookID}`);
+    }
+
+    document.addEventListener("DOMContentLoaded", init);
+</script>
+{% endblock %}

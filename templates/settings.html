@@ -1,0 +1,101 @@
+{% extends "base.html" %} {% block head %}
+<link rel="stylesheet" href="https://a439-official.github.io/css/text.css" />
+<link rel="stylesheet" href="https://a439-official.github.io/css/form.css" />
+<script src="https://a439-official.github.io/js/custom-select.js"></script>
+<style>
+    /* 先不要样式 */
+</style>
+{% endblock %} {% block content %}
+<div class="settings-container">
+    <h1>设置</h1>
+
+    <div class="form-container" id="application-settings">
+        <h1 class="form-title">应用设置</h1>
+    </div>
+
+    <div class="form-container" id="reading-settings">
+        <h1 class="form-title">阅读设置</h1>
+        <p>还没想好做什么...</p>
+    </div>
+</div>
+{% endblock %} {% block script %}
+<script>
+    async function addSetting(setting) {
+        const container = document.getElementById(setting.category + "-settings");
+        if (!container) return;
+        const settingItem = document.createElement("div");
+        settingItem.className = "form-group";
+        const nameElement = document.createElement("span");
+        nameElement.className = "form-label";
+        nameElement.textContent = setting.name;
+        settingItem.appendChild(nameElement);
+        const func = async (value) => {
+            await window.config.set(setting.id, value);
+            if (setting.func) {
+                setting.func(value);
+            }
+        };
+        if (setting.type === "select") {
+            const selectContainer = document.createElement("div");
+            selectContainer.id = setting.id;
+            selectContainer.dataset.configKey = setting.id;
+            const currentValue = await window.config.get(setting.id, setting.default);
+            const customSelect = new CustomSelect(selectContainer, setting.values, parseInt(currentValue), (value) => {
+                func(value);
+            });
+            settingItem.appendChild(selectContainer);
+        } else if (setting.type === "fileselect") {
+            const control = document.createElement("input");
+            control.type = "text";
+            control.readOnly = true;
+            control.id = setting.id;
+            control.dataset.configKey = setting.id;
+            control.className = "form-input";
+            control.value = await window.config.get(setting.id, setting.default);
+            control.addEventListener("click", async () => {
+                const paths = await window.api.openFilePicker({
+                    ...{
+                        properties: ["openFile"],
+                    },
+                    ...setting.options,
+                });
+                if (paths && paths.length > 0) {
+                    control.value = paths[0];
+                    func(control.value);
+                }
+            });
+            settingItem.appendChild(control);
+        }
+        container.appendChild(settingItem);
+    }
+
+    addSetting({
+        category: "application",
+        id: "background",
+        name: "背景",
+        type: "select",
+        values: ["预设", "随机", "自定义"],
+        default: 0,
+        func: (value) => {
+            initBackground();
+        },
+    });
+    addSetting({
+        category: "application",
+        id: "background-image",
+        name: "自定义背景",
+        type: "fileselect",
+        default: "",
+        options: {
+            title: "选择文件",
+            filters: [
+                { name: "Images", extensions: ["jpg", "png", "gif"] },
+                { name: "All Files", extensions: ["*"] },
+            ],
+        },
+        func: (value) => {
+            initBackground();
+        },
+    });
+</script>
+{% endblock %}

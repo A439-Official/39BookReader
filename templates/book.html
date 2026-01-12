@@ -1,0 +1,91 @@
+{% extends "base.html" %} {% block head %}
+<link rel="stylesheet" href="https://a439-official.github.io/css/text.css" />
+<link rel="stylesheet" href="https://a439-official.github.io/css/card.css" />
+<style>
+    .back-button {
+        position: absolute;
+        top: 32px;
+        right: 32px;
+        z-index: 9999;
+    }
+
+    .chapter-item {
+        cursor: pointer;
+    }
+</style>
+{% endblock %} {% block content %}
+<a href="#" class="back-button btn" id="back-button">返回</a>
+<br />
+<br />
+<div class="cards-container-grid">
+    <img class="" src="{{ book.thumb_url }}" alt="{{ book.book_name }}" />
+    <div class="card">
+        <h1>
+            <span>
+                {{ book.book_name }} {% if book.original_book_name and book.original_book_name != book.book_name %}
+                <h2><small>({{ book.original_book_name }})</small></h2>
+                {% endif %}
+            </span>
+        </h1>
+        <p class="meta-item">
+            <strong>作者: </strong>
+            {{ book.author }}
+        </p>
+        <p class="meta-item">
+            <strong>分类: </strong>
+            {{ book.category }}
+        </p>
+        <p class="meta-item">
+            <strong>状态: </strong>
+            {{ book.creation_status }}
+        </p>
+        <p class="meta-item">
+            <strong>字数: </strong>
+            {% if book.word_number %}{{ book.word_number }}字{% else %}未知{% endif %}
+        </p>
+        <p class="meta-item">
+            <strong>评分: </strong>
+            {% if book.score and book.score > 0 %}{{ book.score }}{% else %}暂无评分{% endif %}
+        </p>
+        <button class="btn" id="download-button">更新</button>
+        <br />
+        <h2 class="section-title">简介</h2>
+        <div class="book-abstract">{% if book.abstract %}{{ book.abstract | safe }}{% else %}暂无简介{% endif %}</div>
+    </div>
+</div>
+
+<h2>章节列表</h2>
+{% if book.chapter_list and book.chapter_list.length > 0 %}
+<div class="cards-container-grid" id="chapters-list">
+    {% for chapter in book.chapter_list %}
+    <div class="card chapter-item" data-chapter-id="{{ chapter.item_id }}">
+        <h3>{{ chapter.title }}</h3>
+        {% if chapter.word_count %}<span>{{ chapter.word_count }}字</span>{% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div style="text-align: center; padding: 40px; color: gray">暂无章节信息</div>
+{% endif %} {% endblock %} {% block script %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // 返回按钮
+        document.getElementById("back-button").addEventListener("click", (e) => {
+            e.preventDefault();
+            navigateTo("books.html");
+        });
+
+        // 章节点击
+        document.getElementById("chapters-list")?.addEventListener("click", function (e) {
+            const chapterItem = e.target.closest(".chapter-item");
+            if (chapterItem) {
+                navigateTo(`/chapter/{{ book.book_id }}/${chapterItem.getAttribute("data-chapter-id")}/`);
+            }
+        });
+    });
+
+    document.getElementById("download-button").addEventListener("click", async () => {
+        const result = await window.download.downloadBook("{{ book.book_id }}");
+    });
+</script>
+{% endblock %}

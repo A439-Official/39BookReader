@@ -1,0 +1,86 @@
+{% extends "base.html" %} {% block head %}
+<link rel="stylesheet" href="https://a439-official.github.io/css/text.css" />
+<link rel="stylesheet" href="https://a439-official.github.io/css/form.css" />
+<link rel="stylesheet" href="https://a439-official.github.io/css/progress.css" />
+<style>
+    .download-container {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    .download-container .form-input {
+        flex: 1;
+    }
+</style>
+{% endblock %} {% block content %}
+<h1>下载</h1>
+<div id="active-downloads">
+    <p>没有正在进行的下载</p>
+</div>
+
+<div class="download-form">
+    <h3>开始新下载</h3>
+    <form id="download-form" class="download-container">
+        <input class="form-input" type="text" id="book-id" placeholder="输入小说ID" required />
+        <button type="submit" class="btn">开始下载</button>
+    </form>
+</div>
+
+{% endblock %} {% block script %}
+<script>
+    document.addEventListener("DOMContentLoaded", async () => {
+        const downloadsContainer = document.getElementById("active-downloads");
+
+        // 更新下载列表
+        async function updateDownloads() {
+            const downloads = await window.download.getDownloads();
+
+            if (downloads.length === 0) {
+                downloadsContainer.innerHTML = "<p>没有正在进行的下载</p>";
+                return;
+            }
+
+            downloadsContainer.innerHTML = "";
+            downloads.forEach((download) => {
+                const item = document.createElement("div");
+                item.className = "download-item";
+                item.innerHTML = `
+                    <h4>
+                        <span>${download.bookTitle}</span>
+                        <div class="progress-wrapper">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progress-fill" style="width: ${download.progress}%">${download.downloadedChapters}/${download.totalChapters}</div>
+                            </div>
+                        </div>
+                    </h4>
+                    ${download.error ? `<p class="error">错误: ${download.error}</p>` : ""}
+                `;
+                downloadsContainer.appendChild(item);
+            });
+        }
+
+        // 表单提交 - 开始新下载
+        document.getElementById("download-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const bookId = document.getElementById("book-id").value.trim();
+            if (!bookId) return;
+
+            try {
+                const result = await window.download.downloadBook(bookId);
+                if (result.success) {
+                    document.getElementById("book-id").value = "";
+                    updateDownloads();
+                } else {
+                    alert(`下载失败: ${result.message}`);
+                }
+            } catch (error) {
+                alert(`下载出错: ${error.message}`);
+            }
+        });
+
+        updateDownloads();
+        setInterval(updateDownloads, 1000);
+    });
+</script>
+{% endblock %}

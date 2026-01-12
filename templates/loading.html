@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>正在加载 - 39BookReader</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                background-color: #000;
+                color: #fff;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                overflow: hidden;
+            }
+
+            .loading-container {
+                text-align: center;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 24px;
+            }
+
+            .spinner {
+                border: 3px solid rgba(255, 255, 255, 0.2);
+                border-radius: 50%;
+                border-top: 3px solid #fff;
+                width: 60px;
+                height: 60px;
+                animation: spin 1.2s cubic-bezier(0.5, 0.1, 0.5, 0.9) infinite;
+            }
+
+            @keyframes spin {
+                0% {
+                    transform: rotate(0deg);
+                }
+                100% {
+                    transform: rotate(360deg);
+                }
+            }
+
+            .loading-text {
+                font-size: 18px;
+                font-weight: 400;
+                letter-spacing: 0.5px;
+                opacity: 0.9;
+            }
+
+            /* 响应式设计 */
+            @media (max-width: 480px) {
+                .spinner {
+                    width: 50px;
+                    height: 50px;
+                }
+
+                .loading-text {
+                    font-size: 16px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="loading-container">
+            <div class="spinner"></div>
+            <div class="loading-text"></div>
+        </div>
+
+        <script>
+            const loadingText = document.querySelector(".loading-text");
+            loadingText.textContent = "正在加载...";
+        </script>
+    </body>
+</html>

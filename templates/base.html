@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>39BookReader</title>
+        <link rel="stylesheet" href="https://a439-official.github.io/css/style.css" />
+
+        <style>
+            /* 导航栏拖拽区域 */
+            nav {
+                -webkit-app-region: drag;
+                user-select: none;
+            }
+            a,
+            img {
+                -webkit-app-region: no-drag;
+                -webkit-user-drag: none;
+            }
+
+            /* 模态框 */
+            .modal-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.5);
+                backdrop-filter: blur(5px);
+                z-index: 1000;
+                animation: fadeIn 0.3s ease-out;
+            }
+
+            .modal-overlay.active {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+
+            .modal-content {
+                width: 90%;
+                padding: 20px;
+                position: relative;
+            }
+
+            .close-btn {
+                background: none;
+                border: none;
+                font-size: 1.5rem;
+                cursor: pointer;
+                color: #999;
+                position: absolute;
+                top: 10px;
+                right: 10px;
+            }
+
+            .close-btn:hover {
+                color: #333;
+            }
+
+            .transition-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: black;
+                z-index: 9999;
+                pointer-events: none;
+                opacity: 1;
+                transition: opacity 0.5s ease-in-out;
+            }
+
+            .transition-overlay.hidden {
+                opacity: 0;
+            }
+        </style>
+
+        {% block head %}{% endblock %}
+    </head>
+    <body>
+        <div class="transition-overlay" id="transitionOverlay"></div>
+
+        <div class="container">
+            <!-- 导航栏 -->
+            <nav>
+                <div class="nav-links">
+                    <a href="#" data-page="index.html">首页</a>
+                    <a href="#" data-page="books.html">已下载</a>
+                    <a href="#" data-page="search.html">搜索</a>
+                    <a href="#" data-page="download.html">下载</a>
+                    <a href="#" data-page="settings.html">设置</a>
+                </div>
+                <div class="auth-links">
+                    <a href="#" class="btn" id="quit-btn">退出</a>
+                </div>
+            </nav>
+
+            <!-- 页面内容 -->
+            <div class="content">{% block content %}{% endblock %}</div>
+        </div>
+
+        <div class="modal-overlay">
+            <div class="modal-content" id="modal">
+                <button class="close-btn">&times;</button>
+                {% block modal %} {% endblock %}
+            </div>
+        </div>
+
+        <canvas id="backgroundcanvas"></canvas>
+
+        <script src="https://a439-official.github.io/js/utils.js"></script>
+        <script src="https://a439-official.github.io/js/particles.js"></script>
+        <script>
+            const canvas = document.getElementById("backgroundcanvas");
+            const ps = new ParticleSystem(100, canvas);
+
+            function animate() {
+                ps.render();
+                requestAnimationFrame(animate);
+            }
+
+            animate();
+
+            // 异步加载背景设置
+            async function initBackground() {
+                try {
+                    const backgroundMode = await window.config.get("background", 0);
+                    const bg = document.getElementsByTagName("body")[0];
+
+                    if (backgroundMode == 0) {
+                        bg.style.backgroundImage = `url('${window.resources.getFileURL("resources/background.png")}')`;
+                    } else if (backgroundMode == 1) {
+                        randomBackground();
+                    } else if (backgroundMode == 2) {
+                        const filepath = await window.config.get("background-image", "");
+                        if (filepath) {
+                            bg.style.backgroundImage = `url('${window.resources.getFileURL(filepath)}')`;
+                        } else {
+                            randomBackground();
+                        }
+                    }
+                } catch (error) {
+                    console.error("加载背景设置失败:", error);
+                    // 设置默认背景
+                    const bg = document.getElementsByTagName("body")[0];
+                    bg.style.backgroundImage = `url('${window.resources.getFileURL("resources/background.png")}')`;
+                }
+            }
+
+            // 初始化背景
+            initBackground();
+
+            document.addEventListener("DOMContentLoaded", function () {
+                setTimeout(() => {
+                    const overlay = document.getElementById("transitionOverlay");
+                    overlay.classList.add("hidden");
+                }, 50);
+            });
+
+            // 页面导航
+            async function navigateTo(page) {
+                const overlay = document.getElementById("transitionOverlay");
+                overlay.classList.remove("hidden");
+                await new Promise((resolve) => setTimeout(resolve, 500));
+                if (window.navigate && window.navigate.to) {
+                    window.navigate.to(page);
+                } else {
+                    window.location.href = page;
+                }
+            }
+            document.addEventListener("DOMContentLoaded", function () {
+                const links = document.querySelectorAll(".nav-links a");
+
+                links.forEach((link) => {
+                    link.addEventListener("click", function (e) {
+                        e.preventDefault();
+                        navigateTo(this.dataset.page);
+                    });
+                });
+            });
+
+            const information = document.getElementById("version");
+            if (information) {
+                window.version().then((version) => {
+                    information.innerText = `version: ${version}`;
+                });
+            }
+
+            document.getElementById("quit-btn").addEventListener("click", (e) => {
+                e.preventDefault();
+                window.api.quit();
+            });
+
+            // 模态框
+            modal = document.querySelector(".modal-overlay");
+            closeBtn = document.querySelector(".close-btn");
+            modal.addEventListener("click", handleModalClick);
+            closeBtn.addEventListener("click", closeModal);
+            function handleModalClick(e) {
+                if (e.target === modal) closeModal();
+            }
+            function handleEscapeKey(e) {
+                if (e.key === "Escape" && modal.classList.contains("active")) {
+                    closeModal();
+                }
+            }
+            function closeModal() {
+                modal.classList.remove("active");
+                document.body.style.overflow = "auto";
+            }
+            function openModal() {
+                modal.classList.add("active");
+                document.body.style.overflow = "hidden";
+            }
+        </script>
+        {% block script %}{% endblock %}
+    </body>
+</html>
