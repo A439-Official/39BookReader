@@ -18,12 +18,25 @@ let book;
 let api;
 
 // 自动更新配置
-autoUpdater.autoDownload = false;
-autoUpdater.autoInstallOnAppQuit = true;
+autoUpdater.autoDownload = configManager.get("update.autoUpdate", true);
+autoUpdater.autoInstallOnAppQuit = configManager.get("update.autoUpdate", true);
+autoUpdater.allowPrerelease = configManager.get("update.allowPrerelease", false);
 
 // 更新事件处理
+autoUpdater.on("checking-for-update", () => {
+    mainWindow?.webContents?.send("update-status", "checking");
+});
+
 autoUpdater.on("update-available", (info) => {
     mainWindow?.webContents?.send("update-available", info);
+});
+
+autoUpdater.on("update-not-available", (info) => {
+    mainWindow?.webContents?.send("update-not-available", info);
+});
+
+autoUpdater.on("download-progress", (progress) => {
+    mainWindow?.webContents?.send("update-progress", progress);
 });
 
 autoUpdater.on("update-downloaded", (info) => {
@@ -32,6 +45,7 @@ autoUpdater.on("update-downloaded", (info) => {
 
 autoUpdater.on("error", (err) => {
     mainWindow?.webContents?.send("update-error", err);
+    console.error("自动更新错误:", err);
 });
 
 // 更新命令处理
@@ -221,36 +235,36 @@ app.whenReady().then(() => {
 
     // 先创建窗口显示加载界面
     createWindow();
-    mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(
-        nunjucks.render("loading.html", {
-            message: "正在初始化资源..."
-        })
-    )}`);
+    mainWindow.loadURL(
+        `data:text/html;charset=utf-8,${encodeURIComponent(
+            nunjucks.render("loading.html", {
+                message: "正在初始化资源...",
+            })
+        )}`
+    );
 
     // 在后台同步资源
     let retryCount = 0;
     const maxRetries = 3;
     const retryDelay = 2000; // 2秒
-    
+
     const handleSyncComplete = () => {
         try {
             const apiConfig = JSON.parse(fs.readFileSync(resourceManager.getResourcePath("api.json"), "utf-8"));
             downloadManager.initBookApi(apiConfig.rootUrl);
             initAPI();
-            
+
             // 资源准备好后加载主界面
-            mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(
-                nunjucks.render("index.html", {})
-            )}`);
-            
+            mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(nunjucks.render("index.html", {}))}`);
         } catch (error) {
             console.error("资源初始化失败:", error);
             if (retryCount < maxRetries) {
                 retryCount++;
-                console.log(`将在 ${retryDelay/1000} 秒后重试 (${retryCount}/${maxRetries})`);
+                console.log(`将在 ${retryDelay / 1000} 秒后重试 (${retryCount}/${maxRetries})`);
                 setTimeout(() => {
                     // 重新触发资源同步
-                    resourceManager.syncResources()
+                    resourceManager
+                        .syncResources()
                         .then(() => resourceManager.emit("syncComplete"))
                         .catch((err) => {
                             console.error("资源同步失败:", err);
@@ -259,11 +273,13 @@ app.whenReady().then(() => {
                 }, retryDelay);
             } else {
                 console.error("资源初始化失败，已达到最大重试次数");
-                mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(
-                    nunjucks.render("loading.html", {
-                        message: "资源加载失败，请检查网络连接后重启应用"
-                    })
-                )}`);
+                mainWindow.loadURL(
+                    `data:text/html;charset=utf-8,${encodeURIComponent(
+                        nunjucks.render("loading.html", {
+                            message: "资源加载失败，请检查网络连接后重启应用",
+                        })
+                    )}`
+                );
             }
         }
     };
@@ -274,9 +290,7 @@ app.whenReady().then(() => {
     // 检查是否有本地缓存的资源可用
     if (fs.existsSync(resourceManager.getResourcePath(".files.json"))) {
         // 有缓存则先快速加载界面
-        mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(
-            nunjucks.render("index.html", {})
-        )}`);
+        mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(nunjucks.render("index.html", {}))}`);
     }
 
     ipcMain.handle("quit-app", () => {

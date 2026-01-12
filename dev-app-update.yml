@@ -1,0 +1,4 @@
+provider: github
+owner: A439-Official
+repo: 39BookReader
+updaterCacheDirName: 39BookReader-dev-updater
