@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, MenuItem, protocol, net, dialog, session } = require("electron");
+const { app, BrowserWindow, ipcMain, protocol, net, dialog, session } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const nunjucks = require("nunjucks");
 const path = require("node:path");
@@ -8,88 +8,48 @@ const ConfigManager = require("./configManager");
 const Book = require("./api");
 const DownloadManager = require("./downloadManager");
 const ResourceManager = require("./resourceManager");
+const WindowManager = require("./main/window.js");
+const IpcHandlers = require("./main/ipcHandlers");
 
 const appName = "39BookReader";
 const downloadManager = new DownloadManager(appName);
 const resourceManager = new ResourceManager(appName);
-let mainWindow;
+const windowManager = new WindowManager();
 let configManager;
 let book;
 let api;
 
 // 更新事件处理
 autoUpdater.on("checking-for-update", () => {
-    mainWindow?.webContents?.send("update-status", "checking");
+    windowManager.getMainWindow()?.webContents?.send("update-status", "checking");
 });
 
 autoUpdater.on("update-available", (info) => {
-    mainWindow?.webContents?.send("update-available", info);
+    windowManager.getMainWindow()?.webContents?.send("update-available", info);
 });
 
 autoUpdater.on("update-not-available", (info) => {
-    mainWindow?.webContents?.send("update-not-available", info);
+    windowManager.getMainWindow()?.webContents?.send("update-not-available", info);
 });
 
 autoUpdater.on("download-progress", (progress) => {
-    mainWindow?.webContents?.send("update-progress", progress);
+    windowManager.getMainWindow()?.webContents?.send("update-progress", progress);
 });
 
 autoUpdater.on("update-downloaded", (info) => {
-    mainWindow?.webContents?.send("update-downloaded", info);
+    windowManager.getMainWindow()?.webContents?.send("update-downloaded", info);
 });
 
 autoUpdater.on("error", (err) => {
-    mainWindow?.webContents?.send("update-error", err);
+    windowManager.getMainWindow()?.webContents?.send("update-error", err);
     console.error("自动更新错误:", err);
 });
 
-// 更新命令处理
-ipcMain.handle("check-for-updates", () => {
-    return autoUpdater.checkForUpdates();
-});
-
-ipcMain.handle("download-update", () => {
-    return autoUpdater.downloadUpdate();
-});
-
-ipcMain.handle("quit-and-install", () => {
-    autoUpdater.quitAndInstall();
-});
-
-{
-    // 快捷键
-    const menu = new Menu();
-    if (process.platform === "darwin") {
-        const appMenu = new MenuItem({ role: "appMenu" });
-        menu.append(appMenu);
-    }
-    const menuItems = [
-        {
-            label: "Reload window",
-            click: () => mainWindow.reload(),
-            accelerator: "CommandOrControl+R",
-        },
-        {
-            label: "Full screen",
-            click: () => mainWindow.setFullScreen(!mainWindow.isFullScreen()),
-            accelerator: "F11",
-        },
-    ];
-    if (process.env.NODE_ENV === "development" || !app.isPackaged) {
-        menuItems.push({
-            label: "Open DevTools",
-            click: () => mainWindow.webContents.openDevTools(),
-            accelerator: "CommandOrControl+Shift+I",
-        });
-    }
-    const submenu = Menu.buildFromTemplate(menuItems);
-    menu.append(new MenuItem({ label: "Custom Menu", submenu }));
-    Menu.setApplicationMenu(menu);
-}
-
 // 初始化API
 function initAPI() {
-    book = new Book(JSON.parse(fs.readFileSync(resourceManager.getResourcePath("api.json"), "utf-8")).rootUrl);
+    apiurl = JSON.parse(fs.readFileSync(resourceManager.getResourcePath("api.json"), "utf-8")).rootUrl;
+    downloadManager.initBookApi(apiurl);
+    book = new Book(apiurl);
     api = {
         getBooks: () => {
             return [];
@@ -128,44 +88,7 @@ function initAPI() {
         },
     };
 
-    // 配置管理API
-    const configApi = {
-        getConfig: (event, key = null, defaultValue = null) => {
-            return configManager.get(key, defaultValue);
-        },
-        setConfig: (event, key, value) => {
-            return configManager.set(key, value);
-        },
-        deleteConfig: (event, key) => {
-            return configManager.delete(key);
-        },
-        resetConfig: () => {
-            return configManager.reset();
-        },
-        getConfigPath: () => {
-            return {
-                dir: configManager.getConfigDir(),
-                file: configManager.getConfigFile(),
-            };
-        },
-    };
-
-    // 注册API处理程序
-    ipcMain.handle("api-books", api.getBooks);
-    ipcMain.handle("api-search", api.search);
-    ipcMain.handle("api-detail", api.detail);
-    ipcMain.handle("api-book", api.book);
-    ipcMain.handle("api-directory", api.directory);
-    ipcMain.handle("api-content", api.content);
-    ipcMain.handle("api-chapter", api.chapter);
-    ipcMain.handle("api-rawFull", api.rawFull);
-    ipcMain.handle("api-comment", api.comment);
-
-    ipcMain.handle("config-get", configApi.getConfig);
-    ipcMain.handle("config-set", configApi.setConfig);
-    ipcMain.handle("config-delete", configApi.deleteConfig);
-    ipcMain.handle("config-reset", configApi.resetConfig);
-    ipcMain.handle("config-get-path", configApi.getConfigPath);
+    IpcHandlers._registerApiHandlers(api);
 }
 
 // 配置模板目录
@@ -183,18 +106,11 @@ const createWindow = () => {
     autoUpdater.autoInstallOnAppQuit = configManager.get("update.autoUpdate", true);
     autoUpdater.allowPrerelease = configManager.get("update.allowPrerelease", false);
 
-    mainWindow = new BrowserWindow({
-        width: 1280,
-        height: 720,
-        icon: path.join(__dirname, "./resources/icon.png"),
-        frame: false,
-        webPreferences: {
-            preload: path.join(__dirname, "./preload.js"),
-            nodeIntegration: true,
-        },
-    });
+    const mainWindow = windowManager.createWindow();
 
     mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(nunjucks.render("index.html", {}))}`);
+
+    return mainWindow;
 };
 
 // 启动
@@ -234,8 +150,20 @@ app.whenReady().then(() => {
     });
 
     // 先创建窗口显示加载界面
-    createWindow();
-    mainWindow.loadURL(
+    const mainWindow = createWindow();
+
+    // 在创建窗口后立即初始化API handlers
+    IpcHandlers.init({
+        autoUpdater,
+        app,
+        dialog,
+        windowManager,
+        downloadManager,
+        configManager,
+        api: null, // 初始化为null，等资源加载后再设置
+    });
+
+    windowManager.getMainWindow().loadURL(
         `data:text/html;charset=utf-8,${encodeURIComponent(
             nunjucks.render("loading.html", {
                 message: "正在初始化资源...",
@@ -248,14 +176,21 @@ app.whenReady().then(() => {
     const maxRetries = 3;
     const retryDelay = 2000; // 2秒
 
+    let isAPIInitialized = false;
     const handleSyncComplete = () => {
         try {
-            const apiConfig = JSON.parse(fs.readFileSync(resourceManager.getResourcePath("api.json"), "utf-8"));
-            downloadManager.initBookApi(apiConfig.rootUrl);
             initAPI();
+            // const apiConfig = JSON.parse(fs.readFileSync(resourceManager.getResourcePath("api.json"), "utf-8"));
+            // api = new Book(apiConfig.rootUrl);
+            // downloadManager.initBookApi(api);
+
+            // 资源加载后只注册API handlers
+            // if (api) {
+            //     IpcHandlers._registerApiHandlers(api);
+            // }
 
             // 资源准备好后加载主界面
-            mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(nunjucks.render("index.html", {}))}`);
+            windowManager.getMainWindow().loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(nunjucks.render("index.html", {}))}`);
         } catch (error) {
             console.error("资源初始化失败:", error);
             if (retryCount < maxRetries) {
@@ -273,7 +208,7 @@ app.whenReady().then(() => {
                 }, retryDelay);
             } else {
                 console.error("资源初始化失败，已达到最大重试次数");
-                mainWindow.loadURL(
+                windowManager.getMainWindow().loadURL(
                     `data:text/html;charset=utf-8,${encodeURIComponent(
                         nunjucks.render("loading.html", {
                             message: "资源加载失败，请检查网络连接后重启应用",
@@ -287,88 +222,18 @@ app.whenReady().then(() => {
     // 监听资源同步完成事件
     resourceManager.on("syncComplete", handleSyncComplete);
 
-    // 检查是否有本地缓存的资源可用
-    if (fs.existsSync(resourceManager.getResourcePath(".files.json"))) {
-        // 有缓存则先快速加载界面
-        mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(nunjucks.render("index.html", {}))}`);
-    }
-
-    ipcMain.handle("quit-app", () => {
-        app.quit();
-    });
-    ipcMain.handle("open-file-picker", async (event, options) => {
-        const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, options);
-        if (canceled) {
-            return [];
-        }
-        return filePaths;
-    });
-    ipcMain.handle("version", () => {
-        return app.getVersion();
-    });
-
-    // 导航
-    ipcMain.on("navigate", (event, path) => {
-        console.log("navigate", path);
-        if (path.startsWith("/book/")) {
-            if (downloadManager.getBookInfo(path.slice("/book/".length))) {
-                mainWindow.loadURL(
-                    `data:text/html;charset=utf-8,${encodeURIComponent(
-                        nunjucks.render("book.html", {
-                            bookId: path.slice("/book/".length),
-                            book: downloadManager.getBookInfo(path.slice("/book/".length)),
-                        })
-                    )}`
-                );
-            }
-        } else if (path.startsWith("/chapter/")) {
-            const [bookId, chapterId] = path.slice("/chapter/".length).split("/");
-            if (downloadManager.getBookInfo(bookId) && downloadManager.getChapter(bookId, chapterId)) {
-                mainWindow.loadURL(
-                    `data:text/html;charset=utf-8,${encodeURIComponent(
-                        nunjucks.render("chapter.html", {
-                            bookId: bookId,
-                            chapterId: chapterId,
-                            chapter: downloadManager.getChapter(bookId, chapterId),
-                        })
-                    )}`
-                );
-            } else {
-                mainWindow.loadURL(
-                    `data:text/html;charset=utf-8,${encodeURIComponent(
-                        nunjucks.render("book.html", {
-                            bookId: bookId,
-                            book: downloadManager.getBookInfo(bookId),
-                        })
-                    )}`
-                );
-            }
-        } else {
-            mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(nunjucks.render(path, {}))}`);
-        }
-    });
-
-    // 下载管理 API
-    ipcMain.handle("download-book", async (event, bookId, skipDownloadedChapters = true) => {
-        try {
-            return await downloadManager.downloadBook(bookId, skipDownloadedChapters);
-        } catch (error) {
-            console.error("下载启动失败:", error);
-            return { success: false, error: error.message };
-        }
-    });
-    ipcMain.handle("download-get-all", () => downloadManager.getDownloads());
-    ipcMain.handle("download-get", (event, bookId) => downloadManager.getDownload(bookId));
-    ipcMain.handle("download-get-dir", () => downloadManager.getDownloadDir());
-    ipcMain.handle("get-books", () => downloadManager.getDownloadedBookIds());
-    ipcMain.handle("get-book-info", (event, bookId) => downloadManager.getBookInfo(bookId));
-    ipcMain.handle("get-chapter", (event, bookId, chapterId) => downloadManager.getChapter(bookId, chapterId));
-
     session.defaultSession.clearCache();
 
     app.on("activate", () => {
         if (BrowserWindow.getAllWindows().length === 0) {
-            createWindow();
+            const mainWindow = createWindow();
+            windowManager.getMainWindow().loadURL(
+                `data:text/html;charset=utf-8,${encodeURIComponent(
+                    nunjucks.render("loading.html", {
+                        message: "正在初始化资源...",
+                    })
+                )}`
+            );
         }
     });
 });

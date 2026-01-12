@@ -51,7 +51,7 @@ class DownloadManager {
      */
     async downloadBook(bookId, skipDownloadedChapters = true) {
         this.ensureInitialized();
-        
+
         // 检查是否已经在下载
         if (this.downloads.has(bookId)) {
             const task = this.downloads.get(bookId);
@@ -162,7 +162,7 @@ class DownloadManager {
                 let retryCount = 0;
                 const maxRetries = 3;
                 let lastError = null;
-                
+
                 while (retryCount < maxRetries) {
                     try {
                         // 获取章节内容
@@ -191,14 +191,14 @@ class DownloadManager {
                         lastError = error;
                         retryCount++;
                         console.error(`下载章节 ${i + 1} 失败 (尝试 ${retryCount}/${maxRetries}):`, error);
-                        
+
                         if (retryCount < maxRetries) {
                             // 等待1秒后重试
-                            await new Promise(resolve => setTimeout(resolve, 1000));
+                            await new Promise((resolve) => setTimeout(resolve, 1000));
                         }
                     }
                 }
-                
+
                 if (retryCount === maxRetries && lastError) {
                     console.error(`下载章节 ${i + 1} 最终失败:`, lastError);
                     // 继续下载下一个章节
