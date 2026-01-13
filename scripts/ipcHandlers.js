@@ -220,6 +220,51 @@ class IpcHandlers {
             ipcMain.handle(channel, handler);
         });
     }
+
+    /**
+     * 初始化API对象
+     * @param {Book} book - Book实例
+     * @returns {Object} API对象
+     */
+    static initAPI(book) {
+        return {
+            getBooks: () => {
+                return [];
+            },
+            search: async (event, key, tabType = 3, offset = 0) => {
+                console.log("search", key, tabType, offset);
+                return await book.search(key, tabType, offset);
+            },
+            detail: async (event, bookId) => {
+                console.log("detail", bookId);
+                return await book.detail(bookId);
+            },
+            book: async (event, bookId) => {
+                console.log("book", bookId);
+                return await book.book(bookId);
+            },
+            directory: async (event, bookId) => {
+                console.log("directory", bookId);
+                return await book.directory(bookId);
+            },
+            content: async (event, tab, itemId, itemIds, bookId, showHtml, toneId, asyncMode) => {
+                console.log("content", tab, itemId, itemIds, bookId, showHtml, toneId, asyncMode);
+                return await book.content(tab, itemId, itemIds, bookId, showHtml, toneId, asyncMode);
+            },
+            chapter: async (event, itemId) => {
+                console.log("chapter", itemId);
+                return await book.chapter(itemId);
+            },
+            rawFull: async (event, itemId) => {
+                console.log("rawFull", itemId);
+                return await book.rawFull(itemId);
+            },
+            comment: async (event, bookId, count, offset) => {
+                console.log("comment", bookId, count, offset);
+                return await book.comment(bookId, count, offset);
+            }
+        };
+    }
 }
 
 module.exports = IpcHandlers;

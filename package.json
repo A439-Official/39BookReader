@@ -39,7 +39,8 @@
             "package.json",
             "*.js",
             "templates/**/*",
-            "resources/**/*"
+            "resources/**/*",
+            "scripts/**/*"
         ],
         "extraResources": [
             "resources/**/*"

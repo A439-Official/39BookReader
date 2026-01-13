@@ -1,8 +1,8 @@
-const { app, BrowserWindow, protocol, net, dialog, session } = require("electron");
-const { autoUpdater } = require("electron-updater");
+const { app, BrowserWindow, dialog, session } = require("electron");
 const nunjucks = require("nunjucks");
 const path = require("node:path");
-const url = require("node:url");
+const { autoUpdater, setupAutoUpdater, checkForUpdates } = require("./scripts/autoUpdater.js");
+const { registerProtocolHandler } = require("./scripts/protocolHandler.js");
 const fs = require("fs");
 const ConfigManager = require("./scripts/configManager.js");
 const Book = require("./scripts/api.js");
@@ -19,75 +19,6 @@ let configManager;
 let book;
 let api;
 
-// 更新事件处理
-autoUpdater.on("checking-for-update", () => {
-    windowManager.getMainWindow()?.webContents?.send("update-status", "checking");
-});
-
-autoUpdater.on("update-available", (info) => {
-    windowManager.getMainWindow()?.webContents?.send("update-available", info);
-});
-
-autoUpdater.on("update-not-available", (info) => {
-    windowManager.getMainWindow()?.webContents?.send("update-not-available", info);
-});
-
-autoUpdater.on("download-progress", (progress) => {
-    windowManager.getMainWindow()?.webContents?.send("update-progress", progress);
-});
-
-autoUpdater.on("update-downloaded", (info) => {
-    windowManager.getMainWindow()?.webContents?.send("update-downloaded", info);
-});
-
-autoUpdater.on("error", (err) => {
-    windowManager.getMainWindow()?.webContents?.send("update-error", err);
-    console.error("自动更新错误:", err);
-});
-
-// 初始化API
-function initAPI(book) {
-    api = {
-        getBooks: () => {
-            return [];
-        },
-        search: async (event, key, tabType = 3, offset = 0) => {
-            console.log("search", key, tabType, offset);
-            return await book.search(key, tabType, offset);
-        },
-        detail: async (event, bookId) => {
-            console.log("detail", bookId);
-            return await book.detail(bookId);
-        },
-        book: async (event, bookId) => {
-            console.log("book", bookId);
-            return await book.book(bookId);
-        },
-        directory: async (event, bookId) => {
-            console.log("directory", bookId);
-            return await book.directory(bookId);
-        },
-        content: async (event, tab, itemId, itemIds, bookId, showHtml, toneId, asyncMode) => {
-            console.log("content", tab, itemId, itemIds, bookId, showHtml, toneId, asyncMode);
-            return await book.content(tab, itemId, itemIds, bookId, showHtml, toneId, asyncMode);
-        },
-        chapter: async (event, itemId) => {
-            console.log("chapter", itemId);
-            return await book.chapter(itemId);
-        },
-        rawFull: async (event, itemId) => {
-            console.log("rawFull", itemId);
-            return await book.rawFull(itemId);
-        },
-        comment: async (event, bookId, count, offset) => {
-            console.log("comment", bookId, count, offset);
-            return await book.comment(bookId, count, offset);
-        },
-    };
-
-    IpcHandlers._registerApiHandlers(api);
-}
-
 // 配置模板目录
 const viewsPath = path.join(__dirname, "templates");
 nunjucks.configure(viewsPath, {
@@ -98,10 +29,8 @@ const createWindow = () => {
     // 初始化配置管理器
     configManager = new ConfigManager(appName);
 
-    // 自动更新配置
-    autoUpdater.autoDownload = configManager.get("update.autoUpdate", true);
-    autoUpdater.autoInstallOnAppQuit = configManager.get("update.autoUpdate", true);
-    autoUpdater.allowPrerelease = configManager.get("update.allowPrerelease", false);
+    // 设置自动更新
+    setupAutoUpdater(windowManager, configManager);
 
     const mainWindow = windowManager.createWindow();
 
@@ -116,35 +45,9 @@ app.whenReady().then(() => {
     if (!app.isPackaged) {
         autoUpdater.updateConfigPath = path.join(__dirname, "dev-app-update.yml");
     }
-    autoUpdater.checkForUpdatesAndNotify();
-    // 注册自定义协议以安全（真的吗）地提供本地文件
-    protocol.handle("getfile", (request) => {
-        let filePath = decodeURIComponent(request.url.slice("getfile:///".length));
-        filePath = filePath.replace(/\//g, path.sep);
-
-        // 安全检查
-        const notallowed = ["C:\\Windows\\", "/Windows/", "C:\\Program Files\\", "/Program Files/"];
-
-        for (let i = 0; i < notallowed.length; i++) {
-            if (filePath.startsWith(notallowed[i])) {
-                return new Response("Access denied", { status: 403 });
-            }
-        }
-        if (!path.isAbsolute(filePath)) {
-            if (app.isPackaged) {
-                filePath = path.join(process.resourcesPath, filePath);
-            } else {
-                filePath = path.join(app.getAppPath(), filePath);
-            }
-        }
-        try {
-            const resolvedPath = path.resolve(filePath);
-            return net.fetch(url.pathToFileURL(resolvedPath).toString());
-        } catch (error) {
-            console.error(`Failed to fetch file: ${filePath}`, error);
-            return new Response("File not found", { status: 404 });
-        }
-    });
+    checkForUpdates();
+    // 注册协议处理器
+    registerProtocolHandler(app);
 
     // 先创建窗口显示加载界面
     const mainWindow = createWindow();
@@ -173,13 +76,13 @@ app.whenReady().then(() => {
     const maxRetries = 3;
     const retryDelay = 2000; // 2秒
 
-    let isAPIInitialized = false;
     const handleSyncComplete = () => {
         try {
             apiurl = JSON.parse(fs.readFileSync(resourceManager.getResourcePath("api.json"), "utf-8")).rootUrl;
             book = new Book(apiurl);
             downloadManager.initBookApi(book);
-            initAPI(book);
+            api = IpcHandlers.initAPI(book);
+            IpcHandlers._registerApiHandlers(api);
 
             // 资源准备好后加载主界面
             windowManager.getMainWindow().loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(nunjucks.render("index.html", {}))}`);

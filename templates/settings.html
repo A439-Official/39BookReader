@@ -65,7 +65,26 @@
                 }
             });
             settingItem.appendChild(control);
+        } else if (setting.type === "switch") {
+            const switchElement = document.createElement("label");
+            switchElement.className = "switch";
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.id = setting.id;
+            checkbox.dataset.configKey = setting.id;
+            const currentValue = await window.config.get(setting.id, setting.default);
+            checkbox.checked = currentValue === 1 || currentValue === true || currentValue === "1";
+            const slider = document.createElement("span");
+            slider.className = "slider";
+            switchElement.appendChild(checkbox);
+            switchElement.appendChild(slider);
+            checkbox.addEventListener("change", async (e) => {
+                const value = e.target.checked ? true : false;
+                await func(value);
+            });
+            settingItem.appendChild(switchElement);
         }
+
         container.appendChild(settingItem);
     }
 
@@ -96,6 +115,22 @@
         func: (value) => {
             initBackground();
         },
+    });
+    addSetting({
+        category: "application",
+        id: "update.autoUpdate",
+        name: "自动更新",
+        type: "switch",
+        values: ["是", "否"],
+        default: 1,
+    });
+    addSetting({
+        category: "application",
+        id: "update.allowPrerelease",
+        name: "允许预览版",
+        type: "switch",
+        values: ["是", "否"],
+        default: 0,
     });
 </script>
 {% endblock %}
