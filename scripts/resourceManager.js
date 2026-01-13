@@ -17,12 +17,7 @@ class ResourceManager extends EventEmitter {
         // Ensure directory exists
         this.ensureResourcesDirExists();
 
-        // Start sync in background
-        this.syncResources()
-            .then(() => this.emit("syncComplete"))
-            .catch((err) => {
-                console.error("Failed to sync resources:", err);
-            });
+	        // Sync will be started manually when needed
     }
 
     ensureResourcesDirExists() {

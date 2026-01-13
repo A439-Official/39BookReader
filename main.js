@@ -71,51 +71,44 @@ app.whenReady().then(() => {
         )}`
     );
 
-    // 在后台同步资源
-    let retryCount = 0;
-    const maxRetries = 3;
-    const retryDelay = 2000; // 2秒
+	    // 检查api.json是否存在
+	    const initApplication = async () => {
+	        try {
+	            // 检查api.json是否存在
+	            if (!fs.existsSync(resourceManager.getResourcePath("api.json"))) {
+	                // 阻塞式更新资源
+	                console.log("api.json不存在，进行阻塞式资源更新...");
+	                await resourceManager.syncResources();
+	            } else {
+	                // 后台更新资源
+	                resourceManager.syncResources().catch(err => {
+	                    console.error("后台资源更新失败:", err);
+	                });
+	            }
 
-    const handleSyncComplete = () => {
-        try {
-            apiurl = JSON.parse(fs.readFileSync(resourceManager.getResourcePath("api.json"), "utf-8")).rootUrl;
-            book = new Book(apiurl);
-            downloadManager.initBookApi(book);
-            api = IpcHandlers.initAPI(book);
-            IpcHandlers._registerApiHandlers(api);
+	            // 初始化API
+	            const apiurl = JSON.parse(fs.readFileSync(resourceManager.getResourcePath("api.json"), "utf-8")).rootUrl;
+	            book = new Book(apiurl);
+	            downloadManager.initBookApi(book);
+	            api = IpcHandlers.initAPI(book);
+	            IpcHandlers._registerApiHandlers(api);
 
-            // 资源准备好后加载主界面
-            windowManager.getMainWindow().loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(nunjucks.render("index.html", {}))}`);
-        } catch (error) {
-            console.error("资源初始化失败:", error);
-            if (retryCount < maxRetries) {
-                retryCount++;
-                console.log(`将在 ${retryDelay / 1000} 秒后重试 (${retryCount}/${maxRetries})`);
-                setTimeout(() => {
-                    // 重新触发资源同步
-                    resourceManager
-                        .syncResources()
-                        .then(() => resourceManager.emit("syncComplete"))
-                        .catch((err) => {
-                            console.error("资源同步失败:", err);
-                            handleSyncComplete();
-                        });
-                }, retryDelay);
-            } else {
-                console.error("资源初始化失败，已达到最大重试次数");
-                windowManager.getMainWindow().loadURL(
-                    `data:text/html;charset=utf-8,${encodeURIComponent(
-                        nunjucks.render("loading.html", {
-                            message: "资源加载失败，请检查网络连接后重启应用",
-                        })
-                    )}`
-                );
-            }
-        }
-    };
+	            // 加载主界面
+	            windowManager.getMainWindow().loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(nunjucks.render("index.html", {}))}`);
+	        } catch (error) {
+	            console.error("资源初始化失败:", error);
+	            windowManager.getMainWindow().loadURL(
+	                `data:text/html;charset=utf-8,${encodeURIComponent(
+	                    nunjucks.render("loading.html", {
+	                        message: "资源加载失败，请检查网络连接后重启应用",
+	                    })
+	                )}`
+	            );
+	        }
+	    };
 
-    // 监听资源同步完成事件
-    resourceManager.on("syncComplete", handleSyncComplete);
+	    // 初始化应用
+	    initApplication();
 
     session.defaultSession.clearCache();
 
