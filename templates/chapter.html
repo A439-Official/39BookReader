@@ -22,7 +22,7 @@
 {% endblock %} {% block content %}
 <a href="#" class="back-button btn" id="back-button">章节列表</a>
 <h1>{{ chapter.title }}</h1>
-<div id="content">{{ chapter.content }}</div>
+<div id="content"></div>
 <div class="chapter-control">
     <a href="#" class="chapter-btn" id="perv-button">上一章</a>
     <a href="#" class="chapter-btn" id="next-button">下一章</a>
@@ -47,8 +47,21 @@
         });
 
         // 内容处理
-        var content = document.getElementById("content");
-        content.innerHTML = content.innerHTML.replace(/\n/g, "<br>");
+        (async () => {
+            const chapterData = await window.books.getChapter("{{ bookId }}", "{{ chapterId }}");
+            console.log(chapterData);
+            let content = document.getElementById("content");
+            let text = "";
+            const paragraphs = chapterData.content.trim().split(/\n/g);
+            for (let i = 0; i < paragraphs.length; i++) {
+                let paragraph = paragraphs[i].trim();
+                // if (paragraph.startsWith("·<")) {
+                //     paragraph = paragraph.slice(1);
+                // }
+                text += "<p>" + paragraph + "</p>";
+            }
+            content.innerHTML = text;
+        })();
     });
 </script>
 {% endblock %}
